@@ -15,12 +15,12 @@ struct singleCommand{
 };
 
 
-int runCommand(struct singleCommand cmd){
+int runCommand(struct singleCommand cmd, char** args){
 	pid_t pid;
 	pid = fork();
 	int status;
 	if(pid==0){
-		execvp(cmd.program, cmd.arguments);
+		execvp(cmd.program, args);
 		perror("Error");
 		exit(1);
 	}
@@ -37,7 +37,7 @@ int main(void)
 
         while (1) {
                 char *nl;
-                int retval;
+                //int retval;
 
                 /* Print prompt */
                 printf("sshell$ ");
@@ -64,9 +64,24 @@ int main(void)
                 }
 
                 /* Regular command */
-                retval = system(cmd);
+                //retval = system(cmd);
+		struct singleCommand command;
+		char* program = strtok(cmd, " ");
+		memcpy(command.program, program, sizeof(command.program));
+		memcpy(command.arguments[0], program, sizeof(command.arguments[0]));
+		int argCount=1;
+		while((program= strtok(NULL, " "))!=NULL){
+			memcpy(command.arguments[argCount], program, sizeof(command.arguments[argCount]));
+			argCount++;
+		}
+		char* args[argCount+1];
+		for(int i=0; i<argCount; i++){
+			args[i]=command.arguments[i];	
+		}
+		args[argCount]=NULL;	
+		int status = runCommand(command,args);
                 fprintf(stdout, "Return status value for '%s': %d\n",
-                        cmd, retval);
+                        cmd, status);
         }
 
         return EXIT_SUCCESS;
