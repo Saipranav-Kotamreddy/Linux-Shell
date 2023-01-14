@@ -10,7 +10,6 @@
 struct singleCommand{
 	char program[32];
 	char arguments[16][32];
-	int inputFile;
 	int outputFile;
 };
 
@@ -34,9 +33,11 @@ int runCommand(struct singleCommand cmd, char** args){
 int main(void)
 {
         char cmd[CMDLINE_MAX];
+	char cwd[CMDLINE_MAX];
 
         while (1) {
                 char *nl;
+		int status;
                 //int retval;
 
                 /* Print prompt */
@@ -79,9 +80,25 @@ int main(void)
 			args[i]=command.arguments[i];	
 		}
 		args[argCount]=NULL;	
-		int status = runCommand(command,args);
-                fprintf(stdout, "Return status value for '%s': %d\n",
-                        cmd, status);
+		
+		
+		if(!strcmp(command.program, "pwd")){
+			getcwd(cwd, sizeof(cwd));
+			fprintf(stdout, "%s\n", cwd);
+			status=0;
+		}
+		
+		else if(!strcmp(command.program, "cd")){
+			printf("%s\n", args[1]);
+			if(chdir(args[1])==-1){
+				fprintf(stdout, "Error in changing directory\n");
+			}
+		}
+		
+		else{
+			status = runCommand(command,args);
+		}
+		fprintf(stdout, "Return status value for '%s': %d\n",cmd, status);
         }
 
         return EXIT_SUCCESS;
