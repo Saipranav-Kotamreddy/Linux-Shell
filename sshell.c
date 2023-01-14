@@ -5,6 +5,14 @@
 
 #define CMDLINE_MAX 512
 
+struct singleCommand{
+	char program[32];
+	char arguments[16][32];
+	int inputFile;
+	int outputFile;
+};
+
+
 int main(void)
 {
         char cmd[CMDLINE_MAX];
