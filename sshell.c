@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/wait.h>
+
 
 #define CMDLINE_MAX 512
 
@@ -11,6 +13,22 @@ struct singleCommand{
 	int inputFile;
 	int outputFile;
 };
+
+
+int runCommand(struct singleCommand cmd){
+	pid_t pid;
+	pid = fork();
+	int status;
+	if(pid==0){
+		execvp(cmd.program, cmd.arguments);
+		perror("Error");
+		exit(1);
+	}
+	else{
+		waitpid(pid, &status, 0);
+	}
+	return status;
+}
 
 
 int main(void)
