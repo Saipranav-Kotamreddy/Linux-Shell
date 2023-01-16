@@ -49,18 +49,28 @@ int parser(struct singleCommand* cmd, char* inputCommand){
 	memcpy(cmd->program, program, sizeof(cmd->program));
 	memcpy(cmd->arguments[0], program, sizeof(cmd->arguments[0]));
 	int argCount=1;
-	int nextRedirect=0;
+	int nextRedirectNoTrunc=0;
+	int nextRedirectTrunc=0;
 	//If the output descriptor is ever not -1 and the parser is still going, thats an error
 	cmd->outputFileDescriptor=STDOUT_FILENO;
 
 	while((program= strtok(NULL, " "))!=NULL){
-		if(nextRedirect){
+		if(nextRedirectTrunc){
 			int fd = open(program, O_WRONLY | O_CREAT| O_TRUNC, 0644);
 			cmd->outputFileDescriptor=fd;
 			continue;
 		}
+		if(nextRedirectNoTrunc){
+			int fd = open(program, O_WRONLY | O_CREAT | O_APPEND, 0644);
+			cmd->outputFileDescriptor=fd;
+			continue;
+		}
 		if(!strcmp(program, ">")){
-			nextRedirect=1;
+			nextRedirectTrunc=1;
+			continue;
+		}
+		if(!strcmp(program, ">>")){
+			nextRedirectNoTrunc=1;
 			continue;
 		}
 		memcpy(cmd->arguments[argCount], program, sizeof(cmd->arguments[argCount]));
