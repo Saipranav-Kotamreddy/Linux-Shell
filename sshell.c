@@ -18,6 +18,9 @@ struct singleCommand{
 
 pid_t runCommand(struct singleCommand cmd, char** args){
 	pid_t pid;
+	/*printf("Pipe Input: %d\n", cmd.pipeInput);
+	printf("Pipe Output: %d\n", cmd.outputFileDescriptor);
+	printf("Arg 1: %s\n", args[1]);*/
 	pid = fork();
 	if(pid==0){
 		if(cmd.pipeInput!= STDIN_FILENO){
@@ -125,7 +128,7 @@ int main(void)
 		for(int i=0; i<commandCount; i++){
 			parsedCommandList[i].pipeInput=STDIN_FILENO;
 			if(i!=0){
-				parsedCommandList[i].pipeInput=pipeEnds[1];
+				parsedCommandList[i].pipeInput=pipeEnds[0];
 			}
 			if(i==commandCount-1){
 				lastCommand=1;
@@ -169,7 +172,7 @@ int main(void)
 				statusArray[j]=status;
 			}
 		}
-		fprintf(stdout, "Return status value for '%s': ",cmd);
+		fprintf(stdout, "+ completed '%s': ",cmd);
 		for(int k=0; k<commandCount-1; k++){
 			fprintf(stdout, "[%d]", WEXITSTATUS(statusArray[k]));
 		}
