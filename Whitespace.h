@@ -7,7 +7,7 @@ char *noSpace(char* str_1);
 
 char *noSpace(char* str_1){
   int L = strlen(str_1);
-    char str_new[1024] = "";
+    char* str_new = malloc(1024);
     char str_temp[1024]= "";
     int x = 0;
     int y= 0;
