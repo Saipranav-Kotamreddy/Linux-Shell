@@ -1,0 +1,112 @@
+#include <stdio.h>
+#include <string.h>
+
+char *noSpace(char* str);
+
+
+
+char *noSpace(char* str){
+
+
+
+  int l = strlen(str);
+  char *new_str = malloc(sizeof(char) * 1024);
+  char temp;
+  int x = 0;
+
+  for (int i = 0; i < l; i++) {
+    if (str[i] == ' ' && temp == '\0')
+      continue;
+
+    else {
+      if (str[i] != '>') {
+        if (str[i] != ' ') {
+          new_str[x] = str[i];
+          temp = new_str[x];
+          x++;
+          continue;
+        }
+        for (int z = i + 1; z < l; z++) {
+          if (str[z] != ' ') {
+            if (str[z] != '|') { // any char other than a space or |
+              while (i < z) {
+                new_str[x] = str[i];
+                temp = str[i];
+                x++;
+                i++;
+              }
+              i--;
+              break;
+            }
+            // str[z] = '|'
+            i = z - 1;
+            break;
+          }
+        }
+      } else {
+        // add a space at the start and at least 1 '>'
+        new_str[x] = ' ';
+        x++;
+        new_str[x] = '>';
+        x++;
+        if (str[i + 1] != '>') { // if only 1 > print
+          new_str[x] = ' ';
+          temp = new_str[x];
+          x++;
+          continue;
+        }
+        new_str[x] = '>';
+        x++;
+        new_str[x] = ' ';
+        temp = new_str[x];
+        x++;
+        i += 1;
+      }
+    }
+  }
+
+  // printf("'%s'\n", new_str);
+
+  char *better = malloc(sizeof(char) * 1024);
+  l = strlen(new_str);
+  x = 0;
+
+  for (int i = 0; i < l; i++) {
+    if (new_str[i] != ' ') {
+      better[x] = new_str[i];
+      x++;
+      continue;
+    }
+    if (new_str[i + 1] != ' ') { // check next char for space
+      better[x] = ' ';
+      x++;
+      continue;
+    }
+
+    // if we have more than 1 space in a row
+    for (int z = i + 2; z < l; z++) {
+      if (new_str[z] != ' ') {
+        if(new_str[z] == '>') {
+          // printf("z: %d\n", z);
+          better[x] = ' ';
+          x++;
+          better[x] = new_str[z];
+          i = z-1;
+          break;
+        } 
+        // keep spaces
+        while(i < z){
+          better[x] = new_str[i];
+          x++;
+          i++;
+        }
+        i--;
+        break;
+      }
+    }
+  }
+
+  printf("'%s'\n", better);
+
+  return 0;
+}
