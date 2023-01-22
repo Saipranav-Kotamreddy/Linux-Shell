@@ -112,6 +112,7 @@ int main(void)
                 /* Builtin command */
                 if (!strcmp(cmd, "exit")) {
                         fprintf(stderr, "Bye...\n");
+			fprintf(stderr, "+ completed '%s' [0]\n",cmd);
                         break;
                 }
 
@@ -160,16 +161,21 @@ int main(void)
 			getcwd(cwd, sizeof(cwd));
 			fprintf(stdout, "%s\n", cwd);
 			statusArray[0]=0;
+			fprintf(stdout, "+ completed '%s' [0]\n",cmd);
+			continue;
 		}
 		
 		else if(!strcmp(parsedCommandList[0].program, "cd")){
-			printf("%s\n", argList[0][1]);
-			if(chdir(argList[1][1])==-1){
-				fprintf(stdout, "Error in changing directory\n");
+			//fprintf(stdout, "%s\n", argList[0][1]);
+			if(chdir(argList[0][1])==-1){
+				fprintf(stderr, "Error in changing directory\n");
+				statusArray[0]=1;
 			}
 			else{
 				statusArray[0]=0;
 			}
+			fprintf(stdout, "+ completed '%s' [%d]\n",cmd, statusArray[0]);
+			continue;
 		}
 		
 		else{
@@ -182,11 +188,11 @@ int main(void)
 				statusArray[j]=status;
 			}
 		}
-		fprintf(stdout, "+ completed '%s': ",cmd);
+		fprintf(stderr, "+ completed '%s' ",cmd);
 		for(int k=0; k<commandCount-1; k++){
-			fprintf(stdout, "[%d]", WEXITSTATUS(statusArray[k]));
+			fprintf(stderr, "[%d]", WEXITSTATUS(statusArray[k]));
 		}
-		fprintf(stdout, "[%d]\n", WEXITSTATUS(statusArray[commandCount-1]));
+		fprintf(stderr, "[%d]\n", WEXITSTATUS(statusArray[commandCount-1]));
         }
 
         return EXIT_SUCCESS;
