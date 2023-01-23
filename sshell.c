@@ -25,14 +25,14 @@ pid_t runCommand(struct singleCommand cmd, char** args){
 	if(pid==0){
 		if(cmd.pipeInput!= STDIN_FILENO){
 			dup2(cmd.pipeInput, STDIN_FILENO);
-			close(cmd.pipeInput);
+			//close(cmd.pipeInput);
 		}
 		if(cmd.outputFileDescriptor != STDOUT_FILENO){
 			dup2(cmd.outputFileDescriptor, STDOUT_FILENO);
 			close(cmd.outputFileDescriptor);
 		}
 		execvp(cmd.program, args);
-		perror("Error");
+		fprintf(stderr, "Error: command not found\n");
 		exit(1);
 	}
 	if(cmd.pipeInput!= STDIN_FILENO){
@@ -54,14 +54,29 @@ int parser(struct singleCommand* cmd, char* inputCommand){
 	//If the output descriptor is ever not -1 and the parser is still going, thats an error
 	cmd->outputFileDescriptor=STDOUT_FILENO;
 
+	if(program==NULL || !strcmp(program, ">") || !strcmp(program, ">>")){
+		return -3;
+	}
+
 	while((program= strtok(NULL, " "))!=NULL){
+		if(argCount==17){
+			return argCount;
+		}
 		if(nextRedirectTrunc){
+			nextRedirectTrunc=2;
 			int fd = open(program, O_WRONLY | O_CREAT| O_TRUNC, 0644);
+			if(fd==-1){
+				return -2;
+			}
 			cmd->outputFileDescriptor=fd;
 			continue;
 		}
 		if(nextRedirectNoTrunc){
+			nextRedirectNoTrunc=2;
 			int fd = open(program, O_WRONLY | O_CREAT | O_APPEND, 0644);
+			if(fd==-1){
+				return -2;
+			}
 			cmd->outputFileDescriptor=fd;
 			continue;
 		}
@@ -76,8 +91,10 @@ int parser(struct singleCommand* cmd, char* inputCommand){
 		memcpy(cmd->arguments[argCount], program, sizeof(cmd->arguments[argCount]));
 		argCount++;
 	}
-	//cmd->arguments[argCount]=NULL;
-	//char* args[argCount+1];	
+	
+	if(nextRedirectTrunc==1 || nextRedirectNoTrunc==1){
+		return -1;
+	}
 	return argCount;
 }
 
@@ -124,18 +141,24 @@ int main(void)
 		memcpy(dupCommand, cmd, sizeof(cmd));
 		char* commandList[4];	
 		char* standardDupCommand = noSpace(dupCommand);
+		
+		if(standardDupCommand[0]=='|' || standardDupCommand[strlen(standardDupCommand)-1]=='|'){
+				fprintf(stderr, "Error: missing command\n");
+				continue;
+		}
 
 		char* pipeCommand=strtok(standardDupCommand, "|");
 		commandList[commandCount-1]=pipeCommand;
 		while((pipeCommand= strtok(NULL, "|"))!=NULL){
 			commandCount++;
-			commandList[commandCount-1]=pipeCommand;;
+			commandList[commandCount-1]=pipeCommand;
 		}
 		struct singleCommand parsedCommandList[commandCount];
 		char* argList[commandCount][16];
 		int lastCommand=0;
 		int pipeEnds[2];
 		int argCount=0;
+		int errorFlag=0;
 		for(int i=0; i<commandCount; i++){
 			parsedCommandList[i].pipeInput=STDIN_FILENO;
 			if(i!=0){
@@ -145,16 +168,51 @@ int main(void)
 				lastCommand=1;
 			}
 			argCount = parser(&parsedCommandList[i], commandList[i]);
+			
+			if(argCount==17){	
+				fprintf(stderr, "Error: too many process arguments\n");
+				errorFlag=1;
+				break;
+			}
+			
+			if(argCount==-1){
+				fprintf(stderr, "Error: no output file\n");
+				errorFlag=1;
+				break;
+			}
+
+			if(argCount==-2){
+				fprintf(stderr, "Error: cannot open output file\n");
+				errorFlag=1;
+				break;
+			}
+
+			if(argCount==-3){
+				fprintf(stderr, "Error: missing command\n");
+				errorFlag=1;
+				break;
+			}
+
+
 			for(int j=0; j<argCount; j++){
 				argList[i][j]=parsedCommandList[i].arguments[j];	
 			}
 			argList[i][argCount]=NULL;	
 			if(!lastCommand){
+				if(parsedCommandList[i].outputFileDescriptor!=STDOUT_FILENO){
+					fprintf(stderr, "Error: misplaced output redirection\n");
+					errorFlag=1;
+					break;
+				}
 				pipe(pipeEnds);
 				parsedCommandList[i].outputFileDescriptor=pipeEnds[1];
 			}
 		}
-		
+		free(standardDupCommand);
+
+		if(errorFlag==1){
+			continue;
+		}
 
 		int statusArray[commandCount];
 		if(!strcmp(parsedCommandList[0].program, "pwd")){
@@ -168,7 +226,7 @@ int main(void)
 		else if(!strcmp(parsedCommandList[0].program, "cd")){
 			//fprintf(stdout, "%s\n", argList[0][1]);
 			if(chdir(argList[0][1])==-1){
-				fprintf(stderr, "Error in changing directory\n");
+				fprintf(stderr, "Error: cannot cd into directory\n");
 				statusArray[0]=1;
 			}
 			else{
@@ -184,8 +242,10 @@ int main(void)
 				pidList[i] = runCommand(parsedCommandList[i],argList[i]);
 			}
 			for(int j=0; j<commandCount; j++){
+			//for(int j=commandCount-1; j>=0; j--){
 				waitpid(pidList[j], &status, 0);
 				statusArray[j]=status;
+				//printf("Finished command %s\n", parsedCommandList[j].program);
 			}
 		}
 		fprintf(stderr, "+ completed '%s' ",cmd);
