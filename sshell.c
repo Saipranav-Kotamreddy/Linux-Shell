@@ -16,7 +16,7 @@ struct singleCommand{
 };
 
 
-pid_t runCommand(struct singleCommand cmd, char** args){
+pid_t runCommand(struct singleCommand cmd, char** args, int pipeList[], int pipeStart, int pipeListCount){
 	pid_t pid;
 	/*printf("Pipe Input: %d\n", cmd.pipeInput);
 	printf("Pipe Output: %d\n", cmd.outputFileDescriptor);
@@ -29,7 +29,10 @@ pid_t runCommand(struct singleCommand cmd, char** args){
 		}
 		if(cmd.outputFileDescriptor != STDOUT_FILENO){
 			dup2(cmd.outputFileDescriptor, STDOUT_FILENO);
-			close(cmd.outputFileDescriptor);
+			//close(cmd.outputFileDescriptor);
+		}
+		for(int i=pipeStart; i<pipeListCount; i++){
+			close(pipeList[i]);
 		}
 		execvp(cmd.program, args);
 		fprintf(stderr, "Error: command not found\n");
@@ -155,6 +158,8 @@ int main(void)
 		}
 		struct singleCommand parsedCommandList[commandCount];
 		char* argList[commandCount][16];
+		int pipeList[8];
+		int pipeListCount=0;
 		int lastCommand=0;
 		int pipeEnds[2];
 		int argCount=0;
@@ -206,6 +211,9 @@ int main(void)
 				}
 				pipe(pipeEnds);
 				parsedCommandList[i].outputFileDescriptor=pipeEnds[1];
+				pipeList[pipeListCount]=pipeEnds[0];
+				pipeList[pipeListCount+1]=pipeEnds[1];
+				pipeListCount=pipeListCount+2;
 			}
 		}
 		free(standardDupCommand);
@@ -238,8 +246,10 @@ int main(void)
 		
 		else{
 			pid_t pidList[commandCount];
+			int pipeStart=0;
 			for(int i=0; i<commandCount; i++){
-				pidList[i] = runCommand(parsedCommandList[i],argList[i]);
+				pidList[i] = runCommand(parsedCommandList[i],argList[i], pipeList, pipeStart, pipeListCount);
+				pipeStart=pipeStart+2;
 			}
 			for(int j=0; j<commandCount; j++){
 			//for(int j=commandCount-1; j>=0; j--){
