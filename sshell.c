@@ -18,18 +18,13 @@ struct singleCommand{
 
 pid_t runCommand(struct singleCommand cmd, char** args, int pipeList[], int pipeStart, int pipeListCount){
 	pid_t pid;
-	/*printf("Pipe Input: %d\n", cmd.pipeInput);
-	printf("Pipe Output: %d\n", cmd.outputFileDescriptor);
-	printf("Arg 1: %s\n", args[1]);*/
 	pid = fork();
 	if(pid==0){
 		if(cmd.pipeInput!= STDIN_FILENO){
 			dup2(cmd.pipeInput, STDIN_FILENO);
-			//close(cmd.pipeInput);
 		}
 		if(cmd.outputFileDescriptor != STDOUT_FILENO){
 			dup2(cmd.outputFileDescriptor, STDOUT_FILENO);
-			//close(cmd.outputFileDescriptor);
 		}
 		for(int i=pipeStart; i<pipeListCount; i++){
 			close(pipeList[i]);
@@ -101,10 +96,31 @@ int parser(struct singleCommand* cmd, char* inputCommand){
 	return argCount;
 }
 
+void pwd(char* cmd){
+	char cwd[CMDLINE_MAX];
+	getcwd(cwd, sizeof(cwd));
+	fprintf(stdout, "%s\n", cwd);
+	int status=0;
+	fprintf(stderr, "+ completed '%s' [%d]\n",cmd, status);
+}
+
+void cd(char* cmd, char* argList[1][16]){
+	int status;
+	if(chdir(argList[0][1])==-1){
+		fprintf(stderr, "Error: cannot cd into directory\n");
+		status=1;
+	}
+	else{
+		status=0;
+	}
+	fprintf(stderr, "+ completed '%s' [%d]\n",cmd, status);
+}
+
+//void normalCommand(
+
 int main(void)
 {
         char cmd[CMDLINE_MAX];
-	char cwd[CMDLINE_MAX];
 
         while (1) {
                 char *nl;
@@ -136,8 +152,11 @@ int main(void)
                         break;
                 }
 
+		if(!strcmp(cmd, "pwd")){
+			pwd(cmd);
+			continue;
+		}
                 /* Regular command */
-                //retval = system(cmd);
 		int commandCount=1;
 		
 		char dupCommand[CMDLINE_MAX];
@@ -147,6 +166,7 @@ int main(void)
 		
 		if(standardDupCommand[0]=='|' || standardDupCommand[strlen(standardDupCommand)-1]=='|'){
 				fprintf(stderr, "Error: missing command\n");
+				free(standardDupCommand);
 				continue;
 		}
 
@@ -158,7 +178,7 @@ int main(void)
 		}
 		struct singleCommand parsedCommandList[commandCount];
 		char* argList[commandCount][16];
-		int pipeList[8];
+		int pipeList[6];
 		int pipeListCount=0;
 		int lastCommand=0;
 		int pipeEnds[2];
@@ -222,28 +242,13 @@ int main(void)
 			continue;
 		}
 		
-		int statusArray[commandCount];
-		if(!strcmp(parsedCommandList[0].program, "pwd")){
-			getcwd(cwd, sizeof(cwd));
-			fprintf(stdout, "%s\n", cwd);
-			statusArray[0]=0;
-			fprintf(stderr, "+ completed '%s' [0]\n",cmd);
-			continue;
-		}
 		
-		else if(!strcmp(parsedCommandList[0].program, "cd")){
-			if(chdir(argList[0][1])==-1){
-				fprintf(stderr, "Error: cannot cd into directory\n");
-				statusArray[0]=1;
-			}
-			else{
-				statusArray[0]=0;
-			}
-			fprintf(stderr, "+ completed '%s' [%d]\n",cmd, statusArray[0]);
+		if(!strcmp(parsedCommandList[0].program, "cd")){
+			cd(cmd, argList);
 			continue;
-		}
-		
+		}	
 		else{
+			int statusArray[commandCount];
 			pid_t pidList[commandCount];
 			int pipeStart=0;
 			for(int i=0; i<commandCount; i++){
@@ -251,17 +256,15 @@ int main(void)
 				pipeStart=pipeStart+2;
 			}
 			for(int j=0; j<commandCount; j++){
-			//for(int j=commandCount-1; j>=0; j--){
 				waitpid(pidList[j], &status, 0);
 				statusArray[j]=status;
-				//printf("Finished command %s\n", parsedCommandList[j].program);
 			}
+			fprintf(stderr, "+ completed '%s' ",cmd);
+			for(int k=0; k<commandCount-1; k++){
+				fprintf(stderr, "[%d]", WEXITSTATUS(statusArray[k]));
+			}
+			fprintf(stderr, "[%d]\n", WEXITSTATUS(statusArray[commandCount-1]));
 		}
-		fprintf(stderr, "+ completed '%s' ",cmd);
-		for(int k=0; k<commandCount-1; k++){
-			fprintf(stderr, "[%d]", WEXITSTATUS(statusArray[k]));
-		}
-		fprintf(stderr, "[%d]\n", WEXITSTATUS(statusArray[commandCount-1]));
         }
 
         return EXIT_SUCCESS;
