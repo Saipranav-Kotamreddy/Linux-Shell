@@ -110,6 +110,60 @@ int parser(struct singleCommand* cmd, char* inputCommand){
 	return argCount;
 }
 
+int multiParser(int commandCount, char* commandList[], struct singleCommand parsedCommandList[],char* argList[commandCount][16], int pipeList[]){
+	int pipePosition=0;
+	int lastCommand=0;
+	int pipeEnds[2];
+	int argCount=0;
+	for(int i=0; i<commandCount; i++){
+		parsedCommandList[i].pipeInput=STDIN_FILENO;
+		if(i!=0){
+			parsedCommandList[i].pipeInput=pipeEnds[0];
+		}
+		if(i==commandCount-1){
+			lastCommand=1;
+		}
+		argCount = parser(&parsedCommandList[i], commandList[i]);
+
+		if(argCount==17){	
+			fprintf(stderr, "Error: too many process arguments\n");
+			return 1;
+		}
+	
+		if(argCount==-1){
+			fprintf(stderr, "Error: no output file\n");
+			return 1;
+		}
+
+		if(argCount==-2){
+			fprintf(stderr, "Error: cannot open output file\n");
+			return 1;
+		}
+
+		if(argCount==-3){
+			fprintf(stderr, "Error: missing command\n");
+			return 1;
+		}
+
+		for(int j=0; j<argCount; j++){
+			argList[i][j]=parsedCommandList[i].arguments[j];	
+		}
+		argList[i][argCount]=NULL;	
+		if(!lastCommand){
+			if(parsedCommandList[i].outputFileDescriptor!=STDOUT_FILENO){
+				fprintf(stderr, "Error: mislocated output redirection\n");
+				return 1;
+			}
+			pipe(pipeEnds);
+			parsedCommandList[i].outputFileDescriptor=pipeEnds[1];
+			pipeList[pipePosition]=pipeEnds[0];
+			pipeList[pipePosition+1]=pipeEnds[1];
+			pipePosition=pipePosition+2;
+		}
+	}
+	return 0;
+}
+
 void pwd(char* cmd){
 	char cwd[CMDLINE_MAX];
 	getcwd(cwd, sizeof(cwd));
@@ -208,63 +262,8 @@ int main(void)
 		struct singleCommand parsedCommandList[commandCount];
 		char* argList[commandCount][16];
 		int pipeList[6];
-
-		int pipePosition=0;
-		int lastCommand=0;
-		int pipeEnds[2];
-		int argCount=0;
-		for(int i=0; i<commandCount; i++){
-			parsedCommandList[i].pipeInput=STDIN_FILENO;
-			if(i!=0){
-				parsedCommandList[i].pipeInput=pipeEnds[0];
-			}
-			if(i==commandCount-1){
-				lastCommand=1;
-			}
-			argCount = parser(&parsedCommandList[i], commandList[i]);
-			
-			if(argCount==17){	
-				fprintf(stderr, "Error: too many process arguments\n");
-				errorFlag=1;
-				break;
-			}
-			
-			if(argCount==-1){
-				fprintf(stderr, "Error: no output file\n");
-				errorFlag=1;
-				break;
-			}
-
-			if(argCount==-2){
-				fprintf(stderr, "Error: cannot open output file\n");
-				errorFlag=1;
-				break;
-			}
-
-			if(argCount==-3){
-				fprintf(stderr, "Error: missing command\n");
-				errorFlag=1;
-				break;
-			}
-
-
-			for(int j=0; j<argCount; j++){
-				argList[i][j]=parsedCommandList[i].arguments[j];	
-			}
-			argList[i][argCount]=NULL;	
-			if(!lastCommand){
-				if(parsedCommandList[i].outputFileDescriptor!=STDOUT_FILENO){
-					fprintf(stderr, "Error: mislocated output redirection\n");
-					errorFlag=1;
-					break;
-				}
-				pipe(pipeEnds);
-				parsedCommandList[i].outputFileDescriptor=pipeEnds[1];
-				pipeList[pipePosition]=pipeEnds[0];
-				pipeList[pipePosition+1]=pipeEnds[1];
-				pipePosition=pipePosition+2;
-			}
-		}
+		
+		errorFlag=multiParser(commandCount, commandList, parsedCommandList, argList, pipeList);
 
 		for(int i=0; i<4; i++){
 			free(commandList[i]);
