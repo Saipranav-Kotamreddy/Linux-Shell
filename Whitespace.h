@@ -8,6 +8,7 @@ char *noSpace(char* str_1);
 char *noSpace(char* str_1){
   int L = strlen(str_1);
     char* str_new = malloc(1024);
+    memset(str_new, '\0', 1024);
     char str_temp[1024]= "";
     int x = 0;
     int y= 0;
@@ -24,6 +25,6 @@ char *noSpace(char* str_1){
 
     }
 
-    return str_new;
-    
+    //printf("%s\n", str_new);
+    return str_new; 
 }

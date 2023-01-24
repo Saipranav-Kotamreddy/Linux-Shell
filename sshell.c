@@ -221,18 +221,17 @@ int main(void)
 		if(errorFlag==1){
 			continue;
 		}
-
+		
 		int statusArray[commandCount];
 		if(!strcmp(parsedCommandList[0].program, "pwd")){
 			getcwd(cwd, sizeof(cwd));
 			fprintf(stdout, "%s\n", cwd);
 			statusArray[0]=0;
-			fprintf(stdout, "+ completed '%s' [0]\n",cmd);
+			fprintf(stderr, "+ completed '%s' [0]\n",cmd);
 			continue;
 		}
 		
 		else if(!strcmp(parsedCommandList[0].program, "cd")){
-			//fprintf(stdout, "%s\n", argList[0][1]);
 			if(chdir(argList[0][1])==-1){
 				fprintf(stderr, "Error: cannot cd into directory\n");
 				statusArray[0]=1;
@@ -240,7 +239,7 @@ int main(void)
 			else{
 				statusArray[0]=0;
 			}
-			fprintf(stdout, "+ completed '%s' [%d]\n",cmd, statusArray[0]);
+			fprintf(stderr, "+ completed '%s' [%d]\n",cmd, statusArray[0]);
 			continue;
 		}
 		
