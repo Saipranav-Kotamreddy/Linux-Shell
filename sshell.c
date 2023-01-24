@@ -15,7 +15,6 @@ struct singleCommand{
 	int outputFileDescriptor;
 };
 
-
 pid_t runCommand(struct singleCommand cmd, char** args, int pipeList[], int pipeStart, int pipeListCount){
 	pid_t pid;
 	pid = fork();
@@ -40,6 +39,21 @@ pid_t runCommand(struct singleCommand cmd, char** args, int pipeList[], int pipe
 		close(cmd.outputFileDescriptor);
 	}
 	return pid;
+}
+
+int commandSplit(char* standardDupCommand, char* commandList[]){
+	int commandCount=1;
+	if(standardDupCommand[0]=='|' || standardDupCommand[strlen(standardDupCommand)-1]=='|'){
+			fprintf(stderr, "Error: missing command\n");
+			return 0;
+	}
+	char* pipeCommand=strtok(standardDupCommand, "|");
+	strcpy(commandList[commandCount-1],pipeCommand);
+	while((pipeCommand= strtok(NULL, "|"))!=NULL){
+		commandCount++;
+		strcpy(commandList[commandCount-1],pipeCommand);
+	}
+	return commandCount;
 }
 
 int parser(struct singleCommand* cmd, char* inputCommand){
@@ -116,7 +130,26 @@ void cd(char* cmd, char* argList[1][16]){
 	fprintf(stderr, "+ completed '%s' [%d]\n",cmd, status);
 }
 
-//void normalCommand(
+void normalCommand(char* cmd, int commandCount, struct singleCommand parsedCommandList[commandCount], char* argList[commandCount][16], int pipeList[commandCount]){
+	int status;
+	int statusArray[commandCount];
+	pid_t pidList[commandCount];
+	int pipeStart=0;
+	int pipeEnd=(commandCount-1)*2;
+	for(int i=0; i<commandCount; i++){
+		pidList[i] = runCommand(parsedCommandList[i],argList[i], pipeList, pipeStart, pipeEnd);
+		pipeStart=pipeStart+2;
+	}
+	for(int j=0; j<commandCount; j++){
+		waitpid(pidList[j], &status, 0);
+		statusArray[j]=status;
+	}
+	fprintf(stderr, "+ completed '%s' ",cmd);
+	for(int k=0; k<commandCount-1; k++){
+		fprintf(stderr, "[%d]", WEXITSTATUS(statusArray[k]));
+	}
+	fprintf(stderr, "[%d]\n", WEXITSTATUS(statusArray[commandCount-1]));
+}	
 
 int main(void)
 {
@@ -124,8 +157,6 @@ int main(void)
 
         while (1) {
                 char *nl;
-		int status;
-                //int retval;
 
                 /* Print prompt */
                 printf("sshell@ucd$ ");
@@ -157,33 +188,31 @@ int main(void)
 			continue;
 		}
                 /* Regular command */
-		int commandCount=1;
-		
+		int errorFlag=0;
+		int commandCount=1;	
 		char dupCommand[CMDLINE_MAX];
 		memcpy(dupCommand, cmd, sizeof(cmd));
-		char* commandList[4];	
+		char** commandList=malloc(sizeof(char*)*4);	
 		char* standardDupCommand = noSpace(dupCommand);
 		
-		if(standardDupCommand[0]=='|' || standardDupCommand[strlen(standardDupCommand)-1]=='|'){
-				fprintf(stderr, "Error: missing command\n");
-				free(standardDupCommand);
-				continue;
+		for(int i=0; i<4; i++){
+			commandList[i]= malloc(CMDLINE_MAX);
 		}
 
-		char* pipeCommand=strtok(standardDupCommand, "|");
-		commandList[commandCount-1]=pipeCommand;
-		while((pipeCommand= strtok(NULL, "|"))!=NULL){
-			commandCount++;
-			commandList[commandCount-1]=pipeCommand;
+		commandCount = commandSplit(standardDupCommand, commandList);
+		free(standardDupCommand);
+		if(commandCount==0){
+			continue;
 		}
+
 		struct singleCommand parsedCommandList[commandCount];
 		char* argList[commandCount][16];
 		int pipeList[6];
-		int pipeListCount=0;
+
+		int pipePosition=0;
 		int lastCommand=0;
 		int pipeEnds[2];
 		int argCount=0;
-		int errorFlag=0;
 		for(int i=0; i<commandCount; i++){
 			parsedCommandList[i].pipeInput=STDIN_FILENO;
 			if(i!=0){
@@ -231,39 +260,27 @@ int main(void)
 				}
 				pipe(pipeEnds);
 				parsedCommandList[i].outputFileDescriptor=pipeEnds[1];
-				pipeList[pipeListCount]=pipeEnds[0];
-				pipeList[pipeListCount+1]=pipeEnds[1];
-				pipeListCount=pipeListCount+2;
+				pipeList[pipePosition]=pipeEnds[0];
+				pipeList[pipePosition+1]=pipeEnds[1];
+				pipePosition=pipePosition+2;
 			}
 		}
-		free(standardDupCommand);
 
+		for(int i=0; i<4; i++){
+			free(commandList[i]);
+		}
+		free(commandList);
 		if(errorFlag==1){
 			continue;
 		}
-		
-		
+
+
 		if(!strcmp(parsedCommandList[0].program, "cd")){
 			cd(cmd, argList);
 			continue;
 		}	
 		else{
-			int statusArray[commandCount];
-			pid_t pidList[commandCount];
-			int pipeStart=0;
-			for(int i=0; i<commandCount; i++){
-				pidList[i] = runCommand(parsedCommandList[i],argList[i], pipeList, pipeStart, pipeListCount);
-				pipeStart=pipeStart+2;
-			}
-			for(int j=0; j<commandCount; j++){
-				waitpid(pidList[j], &status, 0);
-				statusArray[j]=status;
-			}
-			fprintf(stderr, "+ completed '%s' ",cmd);
-			for(int k=0; k<commandCount-1; k++){
-				fprintf(stderr, "[%d]", WEXITSTATUS(statusArray[k]));
-			}
-			fprintf(stderr, "[%d]\n", WEXITSTATUS(statusArray[commandCount-1]));
+			normalCommand(cmd, commandCount, parsedCommandList, argList, pipeList);
 		}
         }
 
