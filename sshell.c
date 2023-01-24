@@ -112,7 +112,7 @@ int main(void)
                 //int retval;
 
                 /* Print prompt */
-                printf("sshell$ ");
+                printf("sshell@ucd$ ");
                 fflush(stdout);
 
                 /* Get command line */
@@ -205,7 +205,7 @@ int main(void)
 			argList[i][argCount]=NULL;	
 			if(!lastCommand){
 				if(parsedCommandList[i].outputFileDescriptor!=STDOUT_FILENO){
-					fprintf(stderr, "Error: misplaced output redirection\n");
+					fprintf(stderr, "Error: mislocated output redirection\n");
 					errorFlag=1;
 					break;
 				}
