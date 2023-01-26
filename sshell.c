@@ -11,6 +11,15 @@
 #define ARGUMENT_MAX_LENGTH 32
 #define MAX_PIPE_COMMANDS 4
 
+enum{
+	NO_ERR,
+	ERR_TOO_MANY_ARGS,
+	ERR_MISS_CMD,
+	ERR_NO_OUTPUT,
+	ERR_OPEN_FAILED,
+	ERR_MISPLACE_REDIRECT
+};
+
 struct singleCommand{
 	char program[ARGUMENT_MAX_LENGTH];
 	char arguments[ARGUMENT_MAX_COUNT][ARGUMENT_MAX_LENGTH];
@@ -47,7 +56,7 @@ pid_t runCommand(struct singleCommand cmd, char** args, int pipeList[], int pipe
 int commandSplit(char* standardDupCommand, char* commandList[]){
 	int commandCount=1;
 	if(standardDupCommand[0]=='|' || standardDupCommand[strlen(standardDupCommand)-1]=='|'){
-			fprintf(stderr, "Error: missing command\n");
+			fprintf(stderr, "Error2: missing command\n");
 			return 0;
 	}
 	char* pipeCommand=strtok(standardDupCommand, "|");
@@ -59,29 +68,54 @@ int commandSplit(char* standardDupCommand, char* commandList[]){
 	return commandCount;
 }
 
-int parser(struct singleCommand* cmd, char* inputCommand){
+int errorHandler(int errorVal){
+	if(errorVal==NO_ERR){
+		return 0;
+	}
+	if(errorVal==ERR_TOO_MANY_ARGS){	
+		fprintf(stderr, "Error: too many process arguments\n");
+		return 1;
+	}
+
+	if(errorVal==ERR_NO_OUTPUT){
+		fprintf(stderr, "Error: no output file\n");
+		return 1;
+	}
+	if(errorVal==ERR_OPEN_FAILED){
+		fprintf(stderr, "Error: cannot open output file\n");
+		return 1;
+	}
+	if(errorVal==ERR_MISS_CMD){
+		fprintf(stderr, "Error: missing command\n");
+		return 1;
+	}
+	return 1;
+}
+
+int parser(struct singleCommand* cmd, char* inputCommand, int* argCount){
 	char* program = strtok(inputCommand, " ");
 	memcpy(cmd->program, program, sizeof(cmd->program));
 	memcpy(cmd->arguments[0], program, sizeof(cmd->arguments[0]));
-	int argCount=1;
+	//int argCount=1;
 	int nextRedirectNoTrunc=0;
 	int nextRedirectTrunc=0;
 	//If the output descriptor is ever not -1 and the parser is still going, thats an error
 	cmd->outputFileDescriptor=STDOUT_FILENO;
 
 	if(program==NULL || !strcmp(program, ">") || !strcmp(program, ">>")){
-		return -3;
+		return ERR_MISS_CMD;
 	}
 
 	while((program= strtok(NULL, " "))!=NULL){
-		if(argCount==(ARGUMENT_MAX_COUNT+1)){
-			return argCount;
+		printf("%d\n", *argCount);
+		if(*argCount==(ARGUMENT_MAX_COUNT+1)){
+			return ERR_TOO_MANY_ARGS;
 		}
 		if(nextRedirectTrunc){
 			nextRedirectTrunc=2;
 			int fd = open(program, O_WRONLY | O_CREAT| O_TRUNC, 0644);
 			if(fd==-1){
-				return -2;
+				return ERR_OPEN_FAILED;
 			}
 			cmd->outputFileDescriptor=fd;
 			continue;
@@ -90,7 +124,7 @@ int parser(struct singleCommand* cmd, char* inputCommand){
 			nextRedirectNoTrunc=2;
 			int fd = open(program, O_WRONLY | O_CREAT | O_APPEND, 0644);
 			if(fd==-1){
-				return -2;
+				return ERR_OPEN_FAILED;
 			}
 			cmd->outputFileDescriptor=fd;
 			continue;
@@ -103,22 +137,24 @@ int parser(struct singleCommand* cmd, char* inputCommand){
 			nextRedirectNoTrunc=1;
 			continue;
 		}
-		memcpy(cmd->arguments[argCount], program, sizeof(cmd->arguments[argCount]));
-		argCount++;
+		memcpy(cmd->arguments[*argCount], program, sizeof(cmd->arguments[*argCount]));
+		(*argCount)++;
 	}
 	
 	if(nextRedirectTrunc==1 || nextRedirectNoTrunc==1){
-		return -1;
+		return ERR_NO_OUTPUT;
 	}
-	return argCount;
+	return NO_ERR;
 }
 
 int multiParser(int commandCount, char* commandList[], struct singleCommand parsedCommandList[],char* argList[commandCount][ARGUMENT_MAX_COUNT], int pipeList[]){
 	int pipePosition=0;
 	int lastCommand=0;
 	int pipeEnds[2];
-	int argCount=0;
+	int argCount=1;
+	int errorVal=0;
 	for(int i=0; i<commandCount; i++){
+		argCount=1;
 		parsedCommandList[i].pipeInput=STDIN_FILENO;
 		if(i!=0){
 			parsedCommandList[i].pipeInput=pipeEnds[0];
@@ -126,27 +162,31 @@ int multiParser(int commandCount, char* commandList[], struct singleCommand pars
 		if(i==commandCount-1){
 			lastCommand=1;
 		}
-		argCount = parser(&parsedCommandList[i], commandList[i]);
-
-		if(argCount==17){	
+		errorVal = parser(&parsedCommandList[i], commandList[i], &argCount);
+		
+		int errorFlag = errorHandler(errorVal);
+		if(errorFlag){
+			return 1;
+		}
+		/*if(errorVal==ERR_TOO_MANY_ARGS){	
 			fprintf(stderr, "Error: too many process arguments\n");
 			return 1;
 		}
 	
-		if(argCount==-1){
+		if(errorVal==ERR_NO_OUTPUT){
 			fprintf(stderr, "Error: no output file\n");
 			return 1;
 		}
 
-		if(argCount==-2){
+		if(errorVal==ERR_OPEN_FAILED){
 			fprintf(stderr, "Error: cannot open output file\n");
 			return 1;
 		}
 
-		if(argCount==-3){
+		if(errorVal==ERR_MISS_CMD){
 			fprintf(stderr, "Error: missing command\n");
 			return 1;
-		}
+		}*/
 
 		for(int j=0; j<argCount; j++){
 			argList[i][j]=parsedCommandList[i].arguments[j];	
@@ -273,6 +313,7 @@ int main(void)
 		}
 		free(commandList);
 		if(errorFlag==1){
+			printf("Issue");
 			continue;
 		}
 
