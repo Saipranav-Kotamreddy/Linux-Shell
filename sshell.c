@@ -6,11 +6,13 @@
 #include <fcntl.h>
 #include "Whitespace.h"
 
+//Macros for all predefined limits
 #define CMDLINE_MAX 512
 #define ARGUMENT_MAX_COUNT 16
 #define ARGUMENT_MAX_LENGTH 32
 #define MAX_PIPE_COMMANDS 4
 
+//Error Terms for all errors checked by handler
 enum{
 	NO_ERR,
 	ERR_TOO_MANY_ARGS,
@@ -20,6 +22,7 @@ enum{
 	ERR_MISPLACE_REDIRECT
 };
 
+//Struct carrying all information relevant per command
 struct singleCommand{
 	char program[ARGUMENT_MAX_LENGTH];
 	char arguments[ARGUMENT_MAX_COUNT][ARGUMENT_MAX_LENGTH];
@@ -27,10 +30,12 @@ struct singleCommand{
 	int outputFileDescriptor;
 };
 
+//Running fork-wait-exec on non-built-in command
 pid_t runCommand(struct singleCommand cmd, char** args, int pipeList[], int pipeStart, int pipeListCount){
 	pid_t pid;
 	pid = fork();
 	if(pid==0){
+		//Duplicating pipes to input/output if necessary, closing all pipes in this child
 		if(cmd.pipeInput!= STDIN_FILENO){
 			dup2(cmd.pipeInput, STDIN_FILENO);
 		}
@@ -44,6 +49,7 @@ pid_t runCommand(struct singleCommand cmd, char** args, int pipeList[], int pipe
 		fprintf(stderr, "Error: command not found\n");
 		exit(1);
 	}
+	//Closing pipes sequentially in parent
 	if(cmd.pipeInput!= STDIN_FILENO){
 		close(cmd.pipeInput);
 	}
@@ -53,6 +59,7 @@ pid_t runCommand(struct singleCommand cmd, char** args, int pipeList[], int pipe
 	return pid;
 }
 
+//Splitting the full command line into sets of commands based on pipe symbol, '|'
 int commandSplit(char* standardDupCommand, char* commandList[]){
 	int commandCount=1;
 	if(standardDupCommand[0]=='|' || standardDupCommand[strlen(standardDupCommand)-1]=='|'){
@@ -67,12 +74,12 @@ int commandSplit(char* standardDupCommand, char* commandList[]){
 	}
 	return commandCount;
 }
-
+//Handles all errors from parsing a single command
 int errorHandler(int errorVal){
 	if(errorVal==NO_ERR){
 		return 0;
 	}
-	if(errorVal==ERR_TOO_MANY_ARGS){	
+	if(errorVal==ERR_TOO_MANY_ARGS){
 		fprintf(stderr, "Error: too many process arguments\n");
 		return 1;
 	}
@@ -92,16 +99,17 @@ int errorHandler(int errorVal){
 	return 1;
 }
 
+//Parses a single command
 int parser(struct singleCommand* cmd, char* inputCommand, int* argCount){
 	char* program = strtok(inputCommand, " ");
 	memcpy(cmd->program, program, sizeof(cmd->program));
 	memcpy(cmd->arguments[0], program, sizeof(cmd->arguments[0]));
-	*argCount=1;
 	int nextRedirectNoTrunc=0;
 	int nextRedirectTrunc=0;
-	//If the output descriptor is ever not -1 and the parser is still going, thats an error
+	//Sets default output to shell output
 	cmd->outputFileDescriptor=STDOUT_FILENO;
 
+	//Half of missing command check: If no command exists, or the program starts with a redirect assume command is missing
 	if(program==NULL || !strcmp(program, ">") || !strcmp(program, ">>")){
 		return ERR_MISS_CMD;
 	}
@@ -110,6 +118,7 @@ int parser(struct singleCommand* cmd, char* inputCommand, int* argCount){
 		if(*argCount==(ARGUMENT_MAX_COUNT)){
 			return ERR_TOO_MANY_ARGS;
 		}
+		//Set redirectFlag to 2 to register the new output location occurred
 		if(nextRedirectTrunc){
 			nextRedirectTrunc=2;
 			int fd = open(program, O_WRONLY | O_CREAT| O_TRUNC, 0644);
@@ -139,13 +148,13 @@ int parser(struct singleCommand* cmd, char* inputCommand, int* argCount){
 		memcpy(cmd->arguments[*argCount], program, sizeof(cmd->arguments[*argCount]));
 		(*argCount)++;
 	}
-	
+	//If symbol to redirect exists but no arguments after, missing redirect error occurs
 	if(nextRedirectTrunc==1 || nextRedirectNoTrunc==1){
 		return ERR_NO_OUTPUT;
 	}
 	return NO_ERR;
 }
-
+//Parses the total command, sets up pipes between commands
 int multiParser(int commandCount, char* commandList[], struct singleCommand parsedCommandList[],char* argList[commandCount][ARGUMENT_MAX_COUNT], int pipeList[]){
 	int pipePosition=0;
 	int lastCommand=0;
@@ -161,22 +170,24 @@ int multiParser(int commandCount, char* commandList[], struct singleCommand pars
 		if(i==commandCount-1){
 			lastCommand=1;
 		}
+
 		errorVal = parser(&parsedCommandList[i], commandList[i], &argCount);
-		
+
 		int errorFlag = errorHandler(errorVal);
 		if(errorFlag){
 			return 1;
 		}
 
 		for(int j=0; j<argCount; j++){
-			argList[i][j]=parsedCommandList[i].arguments[j];	
+			argList[i][j]=parsedCommandList[i].arguments[j];
 		}
-		argList[i][argCount]=NULL;	
+		argList[i][argCount]=NULL;
 		if(!lastCommand){
 			if(parsedCommandList[i].outputFileDescriptor!=STDOUT_FILENO){
 				fprintf(stderr, "Error: mislocated output redirection\n");
 				return 1;
 			}
+			//Initilalizes and stores pipes
 			pipe(pipeEnds);
 			parsedCommandList[i].outputFileDescriptor=pipeEnds[1];
 			pipeList[pipePosition]=pipeEnds[0];
@@ -186,7 +197,7 @@ int multiParser(int commandCount, char* commandList[], struct singleCommand pars
 	}
 	return 0;
 }
-
+//Built in command pwd
 void pwd(char* cmd){
 	char cwd[CMDLINE_MAX];
 	getcwd(cwd, sizeof(cwd));
@@ -194,7 +205,7 @@ void pwd(char* cmd){
 	int status=0;
 	fprintf(stderr, "+ completed '%s' [%d]\n",cmd, status);
 }
-
+//Built in command cd
 void cd(char* cmd, char* argList[1][ARGUMENT_MAX_COUNT]){
 	int status;
 	if(chdir(argList[0][1])==-1){
@@ -206,7 +217,7 @@ void cd(char* cmd, char* argList[1][ARGUMENT_MAX_COUNT]){
 	}
 	fprintf(stderr, "+ completed '%s' [%d]\n",cmd, status);
 }
-
+//Running a normal, non built-in command
 void normalCommand(char* cmd, int commandCount, struct singleCommand parsedCommandList[commandCount], char* argList[commandCount][16], int pipeList[commandCount]){
 	int status;
 	int statusArray[commandCount];
@@ -226,52 +237,53 @@ void normalCommand(char* cmd, int commandCount, struct singleCommand parsedComma
 		fprintf(stderr, "[%d]", WEXITSTATUS(statusArray[k]));
 	}
 	fprintf(stderr, "[%d]\n", WEXITSTATUS(statusArray[commandCount-1]));
-}	
+}
 
 int main(void)
 {
-        char cmd[CMDLINE_MAX];
+	char cmd[CMDLINE_MAX];
 
-        while (1) {
-                char *nl;
+	while (1) {
+		char *nl;
 
-                /* Print prompt */
-                printf("sshell@ucd$ ");
-                fflush(stdout);
+		/* Print prompt */
+		printf("sshell@ucd$ ");
+		fflush(stdout);
 
-                /* Get command line */
-                fgets(cmd, CMDLINE_MAX, stdin);
+		/* Get command line */
+		fgets(cmd, CMDLINE_MAX, stdin);
 
-                /* Print command line if stdin is not provided by terminal */
-                if (!isatty(STDIN_FILENO)) {
-                        printf("%s", cmd);
-                        fflush(stdout);
-                }
+		/* Print command line if stdin is not provided by terminal */
+		if (!isatty(STDIN_FILENO)) {
+			printf("%s", cmd);
+			fflush(stdout);
+		}
 
-                /* Remove trailing newline from command line */
-                nl = strchr(cmd, '\n');
-                if (nl)
-                        *nl = '\0';
+		/* Remove trailing newline from command line */
+		nl = strchr(cmd, '\n');
+		if (nl)
+			*nl = '\0';
 
-                /* Builtin command */
-                if (!strcmp(cmd, "exit")) {
-                        fprintf(stderr, "Bye...\n");
+		// Builtin commands w/o arguments
+		if (!strcmp(cmd, "exit")) {
+			fprintf(stderr, "Bye...\n");
 			fprintf(stderr, "+ completed '%s' [0]\n",cmd);
-                        break;
-                }
+			break;
+		}
 
 		if(!strcmp(cmd, "pwd")){
 			pwd(cmd);
 			continue;
 		}
-                /* Regular command */
+		// Commands with arguments
 		int errorFlag=0;
-		int commandCount=1;	
+		int commandCount=1;
+		//dupCommand and standardDupCommand are used to respace the command line to be parsed
 		char dupCommand[CMDLINE_MAX];
 		memcpy(dupCommand, cmd, sizeof(cmd));
-		char** commandList=malloc(sizeof(char*)*MAX_PIPE_COMMANDS);	
+		char** commandList=malloc(sizeof(char*)*MAX_PIPE_COMMANDS);
 		char* standardDupCommand = clean(dupCommand);
-		
+
 		for(int i=0; i<MAX_PIPE_COMMANDS; i++){
 			commandList[i]= malloc(CMDLINE_MAX);
 		}
@@ -285,7 +297,7 @@ int main(void)
 		struct singleCommand parsedCommandList[commandCount];
 		char* argList[commandCount][ARGUMENT_MAX_COUNT];
 		int pipeList[((MAX_PIPE_COMMANDS-1)*2)];
-		
+
 		errorFlag=multiParser(commandCount, commandList, parsedCommandList, argList, pipeList);
 
 		for(int i=0; i<MAX_PIPE_COMMANDS; i++){
@@ -296,15 +308,14 @@ int main(void)
 			continue;
 		}
 
-
 		if(!strcmp(parsedCommandList[0].program, "cd")){
 			cd(cmd, argList);
 			continue;
-		}	
+		}
 		else{
 			normalCommand(cmd, commandCount, parsedCommandList, argList, pipeList);
 		}
-        }
+	}
 
-        return EXIT_SUCCESS;
+	return EXIT_SUCCESS;
 }
