@@ -19,7 +19,8 @@ enum{
 	ERR_MISS_CMD,
 	ERR_NO_OUTPUT,
 	ERR_OPEN_FAILED,
-	ERR_MISPLACE_REDIRECT
+	ERR_MISPLACE_REDIRECT,
+	ERR_MISPLACE_BACKGROUND
 };
 
 //Struct carrying all information relevant per command
@@ -188,7 +189,10 @@ int multiParser(int commandCount, char* commandList[], struct singleCommand pars
 				return 1;
 			}
 			//Initilalizes and stores pipes
-			pipe(pipeEnds);
+			if(!pipe(pipeEnds)){
+				fprintf(stderr, "Pipe failed");
+				exit(EXIT_FAILURE);	
+			}
 			parsedCommandList[i].outputFileDescriptor=pipeEnds[1];
 			pipeList[pipePosition]=pipeEnds[0];
 			pipeList[pipePosition+1]=pipeEnds[1];
@@ -200,9 +204,15 @@ int multiParser(int commandCount, char* commandList[], struct singleCommand pars
 //Built in command pwd
 void pwd(char* cmd){
 	char cwd[CMDLINE_MAX];
-	getcwd(cwd, sizeof(cwd));
-	fprintf(stdout, "%s\n", cwd);
-	int status=0;
+	int status;
+	if(!getcwd(cwd, sizeof(cwd))){
+		fprintf(stderr, "Get cwd failed");
+		status=1;	
+	}
+	else{
+		fprintf(stdout, "%s\n", cwd);
+		status=0;
+	}
 	fprintf(stderr, "+ completed '%s' [%d]\n",cmd, status);
 }
 //Built in command cd
@@ -251,7 +261,10 @@ int main(void)
 		fflush(stdout);
 
 		/* Get command line */
-		fgets(cmd, CMDLINE_MAX, stdin);
+		if(!fgets(cmd, CMDLINE_MAX, stdin)){	
+			fprintf(stderr, "Error: cannot cd into directory\n");
+			exit(EXIT_FAILURE);
+		};
 
 		/* Print command line if stdin is not provided by terminal */
 		if (!isatty(STDIN_FILENO)) {
@@ -277,12 +290,33 @@ int main(void)
 		}
 		// Commands with arguments
 		int errorFlag=0;
+		int backgroundFlag=0;
 		int commandCount=1;
 		//dupCommand and standardDupCommand are used to respace the command line to be parsed
 		char dupCommand[CMDLINE_MAX];
 		memcpy(dupCommand, cmd, sizeof(cmd));
 		char** commandList=malloc(sizeof(char*)*MAX_PIPE_COMMANDS);
 		char* standardDupCommand = clean(dupCommand);
+		int commandLength = strlen(standardDupCommand);
+
+		for(int pos=0; pos<commandLength; pos++){
+			if(standardDupCommand[pos]=='&'){
+				if(pos==commandLength-1){
+					backgroundFlag=1;
+					standardDupCommand[pos]='\0';
+					break;
+				}
+				else{
+					backgroundFlag=ERR_MISPLACE_BACKGROUND;
+					break;
+				}
+			}
+		}	
+
+		if(backgroundFlag==ERR_MISPLACE_BACKGROUND){
+			fprintf(stderr, "Error: mislocated background sign\n");
+			continue;
+		}
 
 		for(int i=0; i<MAX_PIPE_COMMANDS; i++){
 			commandList[i]= malloc(CMDLINE_MAX);
@@ -313,9 +347,24 @@ int main(void)
 			continue;
 		}
 		else{
-			normalCommand(cmd, commandCount, parsedCommandList, argList, pipeList);
+			if(backgroundFlag==0){
+				normalCommand(cmd, commandCount, parsedCommandList, argList, pipeList);
+			}
+			else{
+				
+				pid_t pid;
+				pid = fork();
+				if(pid==0){
+					normalCommand(cmd, commandCount, parsedCommandList, argList, pipeList);
+					exit(1);
+				}
+				else{
+					for(int i=0; i<((commandCount-1)*2); i++){
+						close(pipeList[i]);
+					}
+				}
+			}
 		}
 	}
-
 	return EXIT_SUCCESS;
 }
