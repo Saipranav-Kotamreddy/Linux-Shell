@@ -7,10 +7,13 @@
 #include "Whitespace.h"
 
 #define CMDLINE_MAX 512
+#define ARGUMENT_MAX_COUNT 16
+#define ARGUMENT_MAX_LENGTH 32
+#define MAX_PIPE_COMMANDS 4
 
 struct singleCommand{
-	char program[32];
-	char arguments[16][32];
+	char program[ARGUMENT_MAX_LENGTH];
+	char arguments[ARGUMENT_MAX_COUNT][ARGUMENT_MAX_LENGTH];
 	int pipeInput;
 	int outputFileDescriptor;
 };
@@ -71,7 +74,7 @@ int parser(struct singleCommand* cmd, char* inputCommand){
 	}
 
 	while((program= strtok(NULL, " "))!=NULL){
-		if(argCount==17){
+		if(argCount==(ARGUMENT_MAX_COUNT+1)){
 			return argCount;
 		}
 		if(nextRedirectTrunc){
@@ -110,7 +113,7 @@ int parser(struct singleCommand* cmd, char* inputCommand){
 	return argCount;
 }
 
-int multiParser(int commandCount, char* commandList[], struct singleCommand parsedCommandList[],char* argList[commandCount][16], int pipeList[]){
+int multiParser(int commandCount, char* commandList[], struct singleCommand parsedCommandList[],char* argList[commandCount][ARGUMENT_MAX_COUNT], int pipeList[]){
 	int pipePosition=0;
 	int lastCommand=0;
 	int pipeEnds[2];
@@ -172,7 +175,7 @@ void pwd(char* cmd){
 	fprintf(stderr, "+ completed '%s' [%d]\n",cmd, status);
 }
 
-void cd(char* cmd, char* argList[1][16]){
+void cd(char* cmd, char* argList[1][ARGUMENT_MAX_COUNT]){
 	int status;
 	if(chdir(argList[0][1])==-1){
 		fprintf(stderr, "Error: cannot cd into directory\n");
@@ -246,10 +249,10 @@ int main(void)
 		int commandCount=1;	
 		char dupCommand[CMDLINE_MAX];
 		memcpy(dupCommand, cmd, sizeof(cmd));
-		char** commandList=malloc(sizeof(char*)*4);	
+		char** commandList=malloc(sizeof(char*)*MAX_PIPE_COMMANDS);	
 		char* standardDupCommand = noSpace(dupCommand);
 		
-		for(int i=0; i<4; i++){
+		for(int i=0; i<MAX_PIPE_COMMANDS; i++){
 			commandList[i]= malloc(CMDLINE_MAX);
 		}
 
@@ -260,12 +263,12 @@ int main(void)
 		}
 
 		struct singleCommand parsedCommandList[commandCount];
-		char* argList[commandCount][16];
-		int pipeList[6];
+		char* argList[commandCount][ARGUMENT_MAX_COUNT];
+		int pipeList[((MAX_PIPE_COMMANDS-1)*2)];
 		
 		errorFlag=multiParser(commandCount, commandList, parsedCommandList, argList, pipeList);
 
-		for(int i=0; i<4; i++){
+		for(int i=0; i<MAX_PIPE_COMMANDS; i++){
 			free(commandList[i]);
 		}
 		free(commandList);
