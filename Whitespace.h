@@ -37,6 +37,7 @@ clean(char* str)
                 } else {
                     strcat(temp, ">");
                 }
+                start = i + 1;
             } else {
                 if (flag) {
                     strcat(temp, " ");
@@ -47,11 +48,11 @@ clean(char* str)
         }
         strncat(temp, token + start, i - start);
 
+
         if (temp[0] == '|') {
             int n = strlen(line);
             if (n > 0)
                 line[n - 1] = 0;
-            
             strncat(line, temp, 1024);
         } else {
             strncat(line, temp, 1024);
@@ -62,7 +63,7 @@ clean(char* str)
     }
 
     int n = strlen(line);
-    if (n > 0)
+    if (n > 0 && line[n - 1] != '|')
         line[n - 1] = 0;
 
     return line;
