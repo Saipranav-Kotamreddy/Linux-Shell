@@ -189,8 +189,8 @@ int multiParser(int commandCount, char* commandList[], struct singleCommand pars
 				return 1;
 			}
 			//Initilalizes and stores pipes
-			if(!pipe(pipeEnds)){
-				fprintf(stderr, "Pipe failed");
+			if(pipe(pipeEnds)==-1){
+				fprintf(stderr, "Pipe failed\n");
 				exit(EXIT_FAILURE);	
 			}
 			parsedCommandList[i].outputFileDescriptor=pipeEnds[1];
@@ -206,7 +206,7 @@ void pwd(char* cmd){
 	char cwd[CMDLINE_MAX];
 	int status;
 	if(!getcwd(cwd, sizeof(cwd))){
-		fprintf(stderr, "Get cwd failed");
+		fprintf(stderr, "Get cwd failed\n");
 		status=1;	
 	}
 	else{
@@ -279,6 +279,13 @@ int main(void)
 
 		// Builtin commands w/o arguments
 		if (!strcmp(cmd, "exit")) {
+			//Code to check if any child is still running gotten from https://stackoverflow.com/questions/60000733/how-to-check-if-all-child-processes-ended
+			int childCheck = waitpid(-1, NULL, WNOHANG);
+			if(!childCheck){	
+				fprintf(stderr, "Error: active jobs still running\n");
+				fprintf(stderr, "+ completed '%s' [1]\n",cmd);
+				continue;
+			}
 			fprintf(stderr, "Bye...\n");
 			fprintf(stderr, "+ completed '%s' [0]\n",cmd);
 			break;
