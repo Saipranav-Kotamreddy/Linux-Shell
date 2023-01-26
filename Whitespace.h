@@ -65,7 +65,6 @@ clean(char* str)
     if (n > 0)
         line[n - 1] = 0;
 
-    //printf("%s\n", line);
     return line;
 }
 

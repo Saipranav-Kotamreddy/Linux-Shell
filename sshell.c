@@ -250,7 +250,7 @@ int main(void)
 		char dupCommand[CMDLINE_MAX];
 		memcpy(dupCommand, cmd, sizeof(cmd));
 		char** commandList=malloc(sizeof(char*)*MAX_PIPE_COMMANDS);	
-		char* standardDupCommand = clean(dupCommand);
+		char* standardDupCommand = noSpace(dupCommand);
 		
 		for(int i=0; i<MAX_PIPE_COMMANDS; i++){
 			commandList[i]= malloc(CMDLINE_MAX);
