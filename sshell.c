@@ -56,7 +56,7 @@ pid_t runCommand(struct singleCommand cmd, char** args, int pipeList[], int pipe
 int commandSplit(char* standardDupCommand, char* commandList[]){
 	int commandCount=1;
 	if(standardDupCommand[0]=='|' || standardDupCommand[strlen(standardDupCommand)-1]=='|'){
-			fprintf(stderr, "Error2: missing command\n");
+			fprintf(stderr, "Error: missing command\n");
 			return 0;
 	}
 	char* pipeCommand=strtok(standardDupCommand, "|");
@@ -96,7 +96,7 @@ int parser(struct singleCommand* cmd, char* inputCommand, int* argCount){
 	char* program = strtok(inputCommand, " ");
 	memcpy(cmd->program, program, sizeof(cmd->program));
 	memcpy(cmd->arguments[0], program, sizeof(cmd->arguments[0]));
-	//int argCount=1;
+	*argCount=1;
 	int nextRedirectNoTrunc=0;
 	int nextRedirectTrunc=0;
 	//If the output descriptor is ever not -1 and the parser is still going, thats an error
@@ -107,8 +107,7 @@ int parser(struct singleCommand* cmd, char* inputCommand, int* argCount){
 	}
 
 	while((program= strtok(NULL, " "))!=NULL){
-		printf("%d\n", *argCount);
-		if(*argCount==(ARGUMENT_MAX_COUNT+1)){
+		if(*argCount==(ARGUMENT_MAX_COUNT)){
 			return ERR_TOO_MANY_ARGS;
 		}
 		if(nextRedirectTrunc){
@@ -168,25 +167,6 @@ int multiParser(int commandCount, char* commandList[], struct singleCommand pars
 		if(errorFlag){
 			return 1;
 		}
-		/*if(errorVal==ERR_TOO_MANY_ARGS){	
-			fprintf(stderr, "Error: too many process arguments\n");
-			return 1;
-		}
-	
-		if(errorVal==ERR_NO_OUTPUT){
-			fprintf(stderr, "Error: no output file\n");
-			return 1;
-		}
-
-		if(errorVal==ERR_OPEN_FAILED){
-			fprintf(stderr, "Error: cannot open output file\n");
-			return 1;
-		}
-
-		if(errorVal==ERR_MISS_CMD){
-			fprintf(stderr, "Error: missing command\n");
-			return 1;
-		}*/
 
 		for(int j=0; j<argCount; j++){
 			argList[i][j]=parsedCommandList[i].arguments[j];	
@@ -313,7 +293,6 @@ int main(void)
 		}
 		free(commandList);
 		if(errorFlag==1){
-			printf("Issue");
 			continue;
 		}
 

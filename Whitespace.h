@@ -25,6 +25,6 @@ char *noSpace(char* str_1){
 
     }
 
-    //printf("%s\n", str_new);
+    printf("%s\n", str_new);
     return str_new; 
 }
