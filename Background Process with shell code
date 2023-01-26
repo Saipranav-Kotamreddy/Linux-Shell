@@ -1,0 +1,210 @@
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <whitespace>
+
+#define CMDLINE_MAX 512
+
+struct singleCommand {
+  char program[32];
+  char arguments[16][32];
+  int pipeInput;
+  int outputFileDescriptor;
+  int background;
+};
+
+pid_t runCommand(struct singleCommand cmd, char **args, int pipeList[],
+                 int pipeStart, int pipeListCount) {
+  pid_t pid;
+  /*printf("Pipe Input: %d\n", cmd.pipeInput);
+  printf("Pipe Output: %d\n", cmd.outputFileDescriptor);
+  printf("Arg 1: %s\n", args[1]);*/
+  pid = fork();
+  if (pid == 0) {
+    if (cmd.pipeInput != STDIN_FILENO) {
+      dup2(cmd.pipeInput, STDIN_FILENO);
+      // close(cmd.pipeInput);
+    }
+    if (cmd.outputFileDescriptor != STDOUT_FILENO) {
+      dup2(cmd.outputFileDescriptor, STDOUT_FILENO);
+      // close(cmd.outputFileDescriptor);
+    }
+    for (int i = pipeStart; i < pipeListCount; i++) {
+      close(pipeList[i]);
+    }
+    execvp(cmd.program, args);
+    fprintf(stderr, "Error: command not found\n");
+    exit(1);
+  }
+  if (cmd.pipeInput != STDIN_FILENO) {
+    close(cmd.pipeInput);
+  }
+  if (cmd.outputFileDescriptor != STDOUT_FILENO) {
+    close(cmd.outputFileDescriptor);
+  }
+  return pid;
+}
+
+int parser(struct singleCommand *cmd, char *inputCommand) {
+  char *program = strtok(inputCommand, " ");
+  memcpy(cmd->program, program, sizeof(cmd->program));
+  memcpy(cmd->arguments[0], program, sizeof(cmd->arguments[0]));
+  int argCount = 1;
+  int nextRedirectNoTrunc = 0;
+  int nextRedirectTrunc = 0;
+  // If the output descriptor is ever not -1 and the parser is still going,
+  // thats an error
+  cmd->outputFileDescriptor = STDOUT_FILENO;
+  cmd->background = 0;
+
+  if (program == NULL || !strcmp(program, ">") || !strcmp(program, ">>")) {
+    return -3;
+  }
+
+  while ((program = strtok(NULL, " ")) != NULL) {
+    if (argCount == 17) {
+      return argCount;
+    }
+    if (nextRedirectTrunc) {
+      nextRedirectTrunc = 2;
+      int fd = open(program, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
+      if (fd == -1) {
+        return -1;
+      }
+      if (cmd->outputFileDescriptor != STDOUT_FILENO) {
+        return -2;
+      }
+      cmd->outputFileDescriptor = fd;
+      continue;
+    }
+    if (nextRedirectNoTrunc) {
+      nextRedirectNoTrunc = 2;
+      int fd = open(program, O_WRONLY | O_CREAT | O_APPEND, S_IRWXU);
+      if (fd == -1) {
+        return -1;
+      }
+      if (cmd->outputFileDescriptor != STDOUT_FILENO) {
+        return -2;
+      }
+      cmd->outputFileDescriptor = fd;
+      continue;
+    }
+    if (!strcmp(program, ">")) {
+      nextRedirectTrunc = 1;
+    } else if (!strcmp(program, ">>")) {
+      nextRedirectNoTrunc = 1;
+    } else if (!strcmp(program, "&")) {
+      if (program[strlen(program) - 1] != '&') {
+        return -4;
+      }
+      cmd->background = 1;
+    } else {
+      memcpy(cmd->arguments[argCount], program,
+             sizeof(cmd->arguments[argCount]));
+      argCount++;
+    }
+  }
+  if (nextRedirectTrunc == 1 || nextRedirectNoTrunc == 1) {
+    return -2;
+  }
+  return argCount;
+}
+
+int main() {
+  char inputCommand[CMDLINE_MAX];
+  int pipeList[16];
+  int pipeCount;
+  struct singleCommand cmd;
+  pid_t childPID;
+  while (1) {
+    printf("> ");
+    fflush(stdout);
+    fgets(inputCommand, CMDLINE_MAX, stdin);
+    if (inputCommand[strlen(inputCommand) - 1] == '\n') {
+      inputCommand[strlen(inputCommand) - 1] = '\0';
+    }
+
+    int argCount = parser(&cmd, inputCommand);
+    if (argCount < 0) {
+      if (argCount == -1) {
+        printf("Error: Could not open file for redirection\n");
+      } else if (argCount == -2) {
+        printf("Error: No file specified for redirection\n");
+      } else if (argCount == -3) {
+        printf("Error: No command specified\n");
+      } else if (argCount == -4) {
+        printf("Error: & must be the last character of the command\n");
+      }
+      continue;
+    }
+
+    char *args[argCount + 1];
+    args[argCount] = NULL;
+    for (int i = 0; i < argCount; i++) {
+      args[i] = cmd.arguments[i];
+    }
+
+    pipeCount = 0;
+    for (int i = 0; i < argCount; i++) {
+      if (!strcmp(args[i], "|")) {
+        pipe(pipeList + pipeCount * 2);
+        args[i] = NULL;
+        pipeCount++;
+      }
+    }
+
+    if (cmd.background) {
+      // First check for &, if one is not found in last command and the last
+      // character then return an error.
+      if (args[argCount - 1][strlen(args[argCount - 1]) - 1] != '&') {
+        printf("Error: & must be the last character of the command\n");
+        continue;
+      }
+
+      // If in right spot, set background flag to true.
+      cmd.background = 1;
+      args[argCount - 1][strlen(args[argCount - 1]) - 1] = '\0';
+    }
+
+    // Next, put an if checking if flag is active. If the flag is active then
+    // run the normalExec in a child.
+    if (cmd.background) {
+      pid_t pid = runCommand(cmd, args, pipeList, 0, pipeCount * 2);
+      if (pid == -1) {
+        printf("Error: Failed to create child process\n");
+        continue;
+      }
+      backgroundPids[backgroundPidCount++] = pid;
+      continue;
+    }
+
+    pid_t pid = runCommand(cmd, args, pipeList, 0, pipeCount * 2);
+
+    if (pipeCount > 0) {
+      for (int i = 0; i < pipeCount; i++) {
+        pid = runCommand(cmd, args + cmd.pipeInput, pipeList, i * 2,
+                         pipeCount * 2);
+        cmd.pipeInput = i * 2 + 1;
+      }
+    }
+
+    // Finally; in exit add a condition where if any child is active, exit fails
+    // and returns an error.
+    if (backgroundPidCount > 0) {
+      for (int i = 0; i < backgroundPidCount; i++) {
+        int status;
+        waitpid(backgroundPids[i], &status, WNOHANG);
+        if (status == 0) {
+          printf("Error: Child process still active, cannot exit\n");
+          continue;
+        }
+      }
+    }
+  }
+
+  return 0;
+}
+
