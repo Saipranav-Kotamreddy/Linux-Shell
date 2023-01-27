@@ -2,8 +2,9 @@
 
 ## Summary
 
-This program, `sshell`, takes in commands, arguments, redirects, and command
-pipelines as user inputs and then executes them as jobs.
+The sshell program is a command-line interface that accepts various inputs 
+from the user. These inputs include commands, arguments, redirects and 
+command pipelines. The program then executes these inputs as jobs.
 
 ## Implementation
 
@@ -20,12 +21,18 @@ thing checked is if the user input matches the exit or pwd builtin commands,
 as neither can have arguments, so they would make up the whole command line.
 
 If the command line matches neither keyword, the string is standardized to
-have specific spacing using a helper function called clean. There is an edge
-case this fails however, where if the command line is at max length, but
-the '>' or '>>' symbols have no spaces around them, the command line overflows.
-This cleaned string is now parsed for the background job symbol, where if it is
-at the end, the background job flag is set, while if it is in the wrong 
-position, an error is returned.
+have specific spacing using a helper function called 'clean'. The function
+"clean" removes unnecessary whitespace from the user's input command line. 
+The first step in the function is to allocate memory for a new line 
+string and set it to all zeroes using the 'memset' function. The next step
+is to define an array of characters called "whitespace" that includes the 
+characters for space, tab, newline, carriage return, and vertical tab. 
+However there is an edgecase where this fails; if the command line is at 
+max length, but the '>' or '>>' symbols have no spaces around them,then 
+command line overflows.This cleaned string is now parsed for the 
+background job symbol; if it is at the end thenthe background job flag 
+is set. However,while it is in the wrong position, then an error is 
+returned.
 
 Next, the parser splits the command line based on '|' to get each individual
 command in the pipeline separately. This split also checks to make sure there
