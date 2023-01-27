@@ -81,8 +81,8 @@ is run as a builtin command using the `chdir` library function. Otherwise,
 the program checks if `backgroundFlag` was set or not. If it was set, then
 the program execution is run in a child so the parent can continue to accept
 commands from the user. Otherwise the program runs in the parent. The reason
-the size of the argList is hard coded to 1 is that cd only accepts one
-argument, which is the path to the directory to change to. If the directory
+the size of the argList is hard coded to 1 in cd is it can only accept one
+argument, which is the path to the new directory. If the directory
 change fails, an error is returned.
 
 Normal commands are run in `normalCommand`, which calls `runCommand()` on each
