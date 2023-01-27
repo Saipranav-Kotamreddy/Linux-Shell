@@ -21,18 +21,20 @@ thing checked is if the user input matches the exit or pwd builtin commands,
 as neither can have arguments, so they would make up the whole command line.
 
 If the command line matches neither keyword, the string is standardized to
-have specific spacing using a helper function called 'clean'. The function
-"clean" removes unnecessary whitespace from the user's input command line. 
-The first step in the function is to allocate memory for a new line 
-string and set it to all zeroes using the 'memset' function. The next step
-is to define an array of characters called "whitespace" that includes the 
-characters for space, tab, newline, carriage return, and vertical tab. 
-However there is an edgecase where this fails; if the command line is at 
-max length, but the '>' or '>>' symbols have no spaces around them,then 
-command line overflows.This cleaned string is now parsed for the 
-background job symbol; if it is at the end thenthe background job flag 
-is set. However,while it is in the wrong position, then an error is 
-returned.
+have specific spacing using a helper function called `clean()`. The function
+`clean()` removes unnecessary whitespace from the user's input command line. 
+First, the function allocates memory for a new line string and sets it to 
+all null using `memset`. This string then goes through the original
+command and copies it, except changes multiple spaces between arguments
+to just one space and puts spaces around '>' and '>>', while removing
+spaces aroudn the '|' character. This is done to assist later parsingh
+Tere is an edgecase where `clean` fails; if the command line is the 
+max length, but the '>' or '>>' symbols have no spaces around them, then 
+command line overflows. 
+
+This cleaned string is now parsed for the background job symbol; if 
+it is at the end then the background job flag is set. However, if 
+it is in a different position, then an error is returned.
 
 Next, the parser splits the command line based on '|' to get each individual
 command in the pipeline separately. This split also checks to make sure there
