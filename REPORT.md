@@ -131,13 +131,6 @@ of piped commands defined in the specifications and stored in macros.
 All other variables have their memory allocated by the OS, so they clear
 automatically.
 
-### Testing
-
-The code was tested on all inputs provided on the project specifications,
-with additional tests mixing functionality, such as piping and redirecting
-together. These cases were ran on both our sshell and the reference sshell
-and compared using diff to analyze discrepancies and correct for them.
-
 ### Makefile
 
 The makefile checks if the C file or Whitespace header function were updated,
@@ -145,6 +138,12 @@ as those are the only 2 files used to compile the code. The makefile creates
 no intermediary object files, as there is only one C file, and compiles
 only with no errors or warnings.
 
+## Testing
+
+The code was tested on all inputs provided on the project specifications,
+with additional tests mixing functionality, such as piping and redirecting
+together. These cases were ran on both our `sshell` and `sshell_ref`
+and compared using `diff` to analyze discrepancies and correct for them.
 
 
 
