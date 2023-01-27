@@ -27,8 +27,8 @@ First, the function allocates memory for a new line string and sets it to
 all null using `memset`. This string then goes through the original
 command and copies it, except changes multiple spaces between arguments
 to just one space and puts spaces around '>' and '>>', while removing
-spaces aroudn the '|' character. This is done to assist later parsingh
-Tere is an edgecase where `clean` fails; if the command line is the
+spaces aroudn the '|' character. This is done to assist later parsing.
+There is an edgecase where `clean` fails; if the command line is the
 max length, but the '>' or '>>' symbols have no spaces around them, then
 command line overflows.
 
