@@ -24,7 +24,7 @@ If the command line matches neither keyword, the string is standardized to
 have specific spacing using a helper function called `clean()`. The function
 `clean()` removes unnecessary whitespace from the user's input command line.
 First, the function allocates memory for a new line string and sets it to
-all null using `memset`. This string then goes through the original
+all to 0 using `memset`. This string then goes through the original
 command and copies it, except changes multiple spaces between arguments
 to just one space and puts spaces around '>' and '>>', while removing
 spaces aroudn the '|' character. This is done to assist later parsing.
