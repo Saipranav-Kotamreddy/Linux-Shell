@@ -21,7 +21,7 @@ as neither can have arguments, so they would make up the whole command line.
 
 If the command line matches neither keyword, the string is standardized to
 have specific spacing using a helper function called clean. There is an edge
-case this failks however, where if the command line is at max length, but
+case this fails however, where if the command line is at max length, but
 the '>' or '>>' symbols have no spaces around them, the command line overflows.
 This cleaned string is now parsed for the background job symbol, where if it is
 at the end, the background job flag is set, while if it is in the wrong 
@@ -41,8 +41,8 @@ be usable to `execvp()`. `multiparser()` then calls `parser()` on each command.
 A struct type called singleCommand stores all necessary info per command.
 The first argument is taken as the program name and set to the program
 field in the struct, as well as the first argument. The parser then collects
-all the arguments by delimiting on ' '. If a 17th argument is read in a single
-command, an error for too many arguments is returned. `parser()`
+all the arguments by delimiting on whitespace. If a 17th argument is read in 
+a single command, an error for too many arguments is returned. `parser()`
 also handles file redirects, changing how the file is opened/written to
 based on if the redirect is '>' or '>>'. If either symbol is encountered,
 a flag is set that the next token is the file to rediret to. If there is
@@ -54,7 +54,7 @@ a missing command error is returned. Otherwise, `NO_ERR` is returned.
 
 Any error returned by parser is checked via an error handler function, which
 if an error is found, prints the correct message and terminates the parsing.
-It then displays the shell input again. `The multiparser()` loops through each
+It then displays the shell input again. The `multiparser()` loops through each
 command split based on '|' and if a command is not the last command, sets
 that command's output to the pipe write end and copies it to the singleCommand
 struct's output variable. Any command that is not the first command has its
@@ -68,8 +68,8 @@ to execute each program, the arguments of each program, and a list of pipes.
 ### Command Execution
 
 The first thing checked after parsing is if the command is 'cd', as that
-is run as a builtin command using the chdir library function. Otherwise,
-the program checks if the background flag was set or not. If it was set, then
+is run as a builtin command using the `chdir` library function. Otherwise,
+the program checks if `backgroundFlag` was set or not. If it was set, then
 the program execution is run in a child so the parent can continue to accept
 commands from the user. Otherwise the program runs in the parent. The reason
 the size of the argList is hard coded to 1 is that cd only accepts one
