@@ -2,9 +2,9 @@
 
 ## Summary
 
-The sshell program is a command-line interface that accepts various inputs 
-from the user. These inputs include commands, arguments, redirects and 
-command pipelines. The program then executes these inputs as jobs.
+The sshell program is a command-line interface that accepts various inputs
+from the user. These inputs include commands, arguments, redirects
+and command pipelines. The program then executes these inputs as jobs.
 
 ## Implementation
 
@@ -22,18 +22,18 @@ as neither can have arguments, so they would make up the whole command line.
 
 If the command line matches neither keyword, the string is standardized to
 have specific spacing using a helper function called `clean()`. The function
-`clean()` removes unnecessary whitespace from the user's input command line. 
-First, the function allocates memory for a new line string and sets it to 
+`clean()` removes unnecessary whitespace from the user's input command line.
+First, the function allocates memory for a new line string and sets it to
 all null using `memset`. This string then goes through the original
 command and copies it, except changes multiple spaces between arguments
 to just one space and puts spaces around '>' and '>>', while removing
 spaces aroudn the '|' character. This is done to assist later parsingh
-Tere is an edgecase where `clean` fails; if the command line is the 
-max length, but the '>' or '>>' symbols have no spaces around them, then 
-command line overflows. 
+Tere is an edgecase where `clean` fails; if the command line is the
+max length, but the '>' or '>>' symbols have no spaces around them, then
+command line overflows.
 
-This cleaned string is now parsed for the background job symbol; if 
-it is at the end then the background job flag is set. However, if 
+This cleaned string is now parsed for the background job symbol; if
+it is at the end then the background job flag is set. However, if
 it is in a different position, then an error is returned.
 
 Next, the parser splits the command line based on '|' to get each individual
@@ -42,7 +42,7 @@ is not a missing command before or after a pipe symbol, which is an error. The
 individual commands are stored in an array, while their count is stored in an
 integer variable. These are then passed to another parser, `multiParser()`,
 which handles pipe file descriptors, as well as storing each commands arguments
-in an array of `char**`. This is due to `execvp()` not accepting the 
+in an array of `char**`. This is due to `execvp()` not accepting the
 `char[ARGUMENT_MAX_COUNT][ARGUMENT_MAX_LENGTH]` array, so it was converted to
 be usable to `execvp()`. `multiparser()` then calls `parser()` on each command.
 
@@ -50,7 +50,7 @@ be usable to `execvp()`. `multiparser()` then calls `parser()` on each command.
 A struct type called singleCommand stores all necessary info per command.
 The first argument is taken as the program name and set to the program
 field in the struct, as well as the first argument. The parser then collects
-all the arguments by delimiting on whitespace. If a 17th argument is read in 
+all the arguments by delimiting on whitespace. If a 17th argument is read in
 a single command, an error for too many arguments is returned. `parser()`
 also handles file redirects, changing how the file is opened/written to
 based on if the redirect is '>' or '>>'. If either symbol is encountered,
@@ -86,23 +86,23 @@ argument, which is the path to the new directory. If the directory
 change fails, an error is returned.
 
 Normal commands are run in `normalCommand`, which calls `runCommand()` on each
-command. `runCommand()`  only contains `fork()` and `execvp()`, as if 
-`wait()` was included, the pipes would be unable to run concurrently. Instead 
-the pids are stored in an array, where after every command is run, the 
-program loops until every child process formed by the `fork()` and `execvp()` 
+command. `runCommand()`  only contains `fork()` and `execvp()`, as if
+`wait()` was included, the pipes would be unable to run concurrently. Instead
+the pids are stored in an array, where after every command is run, the
+program loops until every child process formed by the `fork()` and `execvp()`
 terminates. 
 
-In the parent side of `runCommand()`, the file descriptors corresponding to the 
-input and output of that command are closed if they do not point to the shell, 
+In the parent side of `runCommand()`, the file descriptors corresponding to the
+input and output of that command are closed if they do not point to the shell,
 in order to ensure the parent does not have any remaining connections to pipes
-by the end. In each child, if the input or output do not make to `STDIN` or 
-`STDOUT` respectively, the correct input and output are `dup2()` onto those 
-positions in the fd table. The child then closes every pipe connection that 
+by the end. In each child, if the input or output do not make to `STDIN` or
+`STDOUT` respectively, the correct input and output are `dup2()` onto those
+positions in the fd table. The child then closes every pipe connection that
 was cloned when the child was made to prevent connections to later pipes, using
-pipeList and a start point to only close unclosed pipe fds. 
+pipeList and a start point to only close unclosed pipe fds.
 
 Since all connections to each pipe besides the commands whose input and output
-are the pipe were closed, if the reader process finishes, it closes its read 
+are the pipe were closed, if the reader process finishes, it closes its read
 pipe end, which causes the writer process to also terminate allowing for all
 processes in the pipeline to close.
 
@@ -124,7 +124,7 @@ within the code above the function call. This check was done instead of
 managing active children pids in order to avoid tracking completion and
 needing information from the child termination to the parents. That is why all
 outputs and errors are done in the child. This does cause a slight issue where
-the completion message can show up next to the shell input, but the user can 
+the completion message can show up next to the shell input, but the user can
 still input into the shell, after which the display will fix itself for the next
 command.
 
@@ -153,15 +153,3 @@ The code was tested on all inputs provided on the project specifications,
 with additional tests mixing functionality, such as piping and redirecting
 together. These cases were ran on both our `sshell` and `sshell_ref`
 and compared using `diff` to analyze discrepancies and correct for them.
-
-
-
-
-
-
-
-
-
-
-
-
