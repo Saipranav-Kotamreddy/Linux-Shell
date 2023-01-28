@@ -15,12 +15,12 @@ char* clean(char* str){
 		char* partialLine = malloc(1025 * sizeof(char));
 		memset(partialLine, 0, 1025);
 
-		int flag = 0;
+		int pipeline_reset = 0;
 		int start = 0;
 		int i;
 		for (i = 0; token[i] != 0; ++i){
 			if (token[i] == '>') {
-				if (!flag) {
+				if (!pipeline_reset) {
 					strncat(partialLine, token + start, i - start);
 					if (i > 0){
 						strcat(partialLine, " >");
@@ -28,7 +28,7 @@ char* clean(char* str){
 					else{
 						strcat(partialLine, ">");
 					}
-					flag = 1;
+					pipeline_reset = 1;
 				}
 				else {
 					strcat(partialLine, ">");
@@ -36,10 +36,10 @@ char* clean(char* str){
 				start = i + 1;
 			}
 			else {
-				if (flag) {
+				if (pipeline_reset) {
 					strcat(partialLine, " ");
 					start = i;
-					flag = 0;
+					pipeline_reset = 0;
 				}
 			}
 	 	}
